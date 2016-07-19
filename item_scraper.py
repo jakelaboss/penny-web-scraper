@@ -2,6 +2,7 @@
 
 import re
 import sys
+import time
 
 from bs4 import BeautifulSoup
 import psycopg2
@@ -9,12 +10,14 @@ from selenium import webdriver
 
 bid_history = []
 
-def chck(driver):
+def chck(driver, count):
     while(True):
         html = driver.page_source
+        retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
         soup = BeautifulSoup(html, 'html.parser')
 
         latest_bidder = soup.find('td', {'id':'bhu_1'}).string
+        method = soup.find('td', {'id':'bht_1'}).string
 
         try:
             price = float(soup.find('span', {'class':'price'}).string.strip()[1:])
@@ -24,10 +27,18 @@ def chck(driver):
                 print 'auction over'
                 break
 
-        bid = {'bidder':latest_bidder, 'price':price}
+        bid = {
+            'id':count,
+            'bidder':latest_bidder,
+            'price':price,
+            'method':method,
+            'retrieval_time':retrieval_time
+        }
 
         if bid not in bid_history:
             bid_history.append(bid)
+
+        count+=1
 
 
 def main(driver):
@@ -47,22 +58,23 @@ def main(driver):
                 'id':count,
                 'bidder':elements[1].string,
                 'price':float(elements[2].string.strip()[1:]),
-                'method':elements[3].string
+                'method':elements[3].string,
+                'retrieval_time':'historic'
                 }
 
             bid_history.append(bid)
             count+=1
 
-    chck(driver)
+    chck(driver, count)
 
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         print 'python item_scaper.py <link>'
         sys.exit()
     else:
-        url = sys.argv[0]
+        url = sys.argv[1]
 
     try:
         print 'opening browser...'
