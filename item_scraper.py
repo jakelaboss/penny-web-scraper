@@ -5,12 +5,43 @@ import sys
 import time
 
 from bs4 import BeautifulSoup
-import psycopg2
 from selenium import webdriver
 
 bid_history = []
 
-def chck(driver, count):
+class Item():
+    # contains all information about an item
+    # name, id, link, winner, win price, actual price, bid history
+
+    def __init__(self, name, link):
+        self.name = name
+        self.link = link
+        self.attributes = {
+            'winner':None,
+            'win_price':None,
+            'actual_price':None,
+            'bid_history':[]
+        }
+
+    def pretty_print(self):
+        print 'Name: ' + self.name
+        print 'Link: ' + self.link
+        print 'Winner: ' + self.attributes['winner']
+        print 'Win Price: ' + str(self.attributes['win_price'])
+        print 'Actual Price: ' + str(self.attributes['actual_price'])
+
+        for bid in self.attributes['bid_history'][-10:]:
+            print 'Bid No. ' + str(bid['id'])
+            print 'User: ' + bid['bidder']
+            print 'Price: ' + str(bid['price'])
+            print 'Method: ' + bid['method']
+            print 'Auction Time: ' + bid['auction_time']
+
+
+def chck(driver, count, item):
+    # loops over the item page checking if new bids have been made
+    # adds them to the item's bid_history attribute
+
     while(True):
         html = driver.page_source
         retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
@@ -18,11 +49,18 @@ def chck(driver, count):
 
         try:
             if soup.find('p', {'class':'won_price'}):
+                winner = soup.find('span', {'class':'won_username'}).string
                 final_price = soup.find('p', {'class':'won_price'}).string
-                if re.search(r'\d', final_price):
+
+                if bool(re.search(r'\d', final_price)):
                     final_price = float(final_price.strip()[1:])
+                    actual_price = float(soup.find('ul', {'class':'price-breakdown'}).find('span', {'class':'float-right'}).string.strip()[1:])
+
+                    item.attributes['winner'] = winner
+                    item.attributes['win_price'] = final_price
+                    item.attributes['actual_price'] = actual_price
                     print 'auction over'
-                    print final_price
+                    driver.quit()
                     break
             else:
                 latest_bidder = soup.find('td', {'id':'bhu_1'}).string
@@ -41,21 +79,33 @@ def chck(driver, count):
                         }
 
                     if not any(b['price'] == bid['price'] for b in bid_history):
-                        bid_history.append(bid)
+                        item.attributes['bid_history'].append(bid)
                         count+=1
         except AttributeError:
             pass
 
+    return item
 
-def main(driver):
+def main(url):
+    try:
+        print 'opening browser...'
+        driver = webdriver.PhantomJS()
+        print 'browser opened'
+        print 'retrieving url...'
+        driver.get(url)
+        print 'url retrieved'
+    except Exception, e:
+        print 'Error opening site: ', e
+
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
-
     name = soup.find('h1', {'id':'product_title'}).string
 
-    bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
+    item = Item(name, url)
 
+    bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
     count = 0
+
     for bid in bids[::-1]:
         elements = bid.find_all('td')
 
@@ -69,11 +119,10 @@ def main(driver):
                 'retrieval_time':'historic'
                 }
 
-            bid_history.append(bid)
+            item.attributes['bid_history'].append(bid)
             count+=1
 
-    chck(driver, count)
-
+    return chck(driver, count, item)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -83,19 +132,8 @@ if __name__ == '__main__':
         url = sys.argv[1]
 
     try:
-        print 'opening browser...'
-        driver = webdriver.PhantomJS()
-        print 'browser opened'
-        print 'retrieving url...'
-        driver.get(url)
-        print 'url retrieved'
-    except Exception, e:
-        print 'Error opening site: ', e
-
-    try:
-        main(driver)
+        item = main(url)
     except KeyboardInterrupt:
         print 'scraping ended'
-        driver.quit()
 
-    print(bid_history)
+    item.pretty_print()
