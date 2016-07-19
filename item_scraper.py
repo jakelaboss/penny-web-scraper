@@ -24,6 +24,24 @@ def main(driver):
 
     name = soup.find('h1', {'id':'product_title'}).string
 
+    bids = soup.find('table', {'id':'bid_history'}).find_all('tr')
+
+    count = 0
+    for bid in bids[::-1]:
+        elements = soup.find_all('td')
+        bid = {
+            'id':count,
+            'bidder':elements[0].string,
+            'price':elements[1].string,
+            'method':elements[2].string
+        }
+
+        bid_history.append(bid)
+        count+=1
+
+    print bid_history
+    
+
 if __name__ == '__main__':
     url = raw_input('Url to scrape: ')
     print 'opening browser...'
