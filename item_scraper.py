@@ -5,18 +5,24 @@ from bs4 import BeautifulSoup
 
 bid_history = []
 
-def main(driver):
+def chck(driver):
     html = driver.page_source
     print len(html)
     soup = BeautifulSoup(html, 'html.parser')
 
-    latest_bidder = soup.find('td', {'id':'bhu_1'})
-    price = soup.find('span', {'class':'price'})
+    latest_bidder = soup.find('td', {'id':'bhu_1'}).string
+    price = soup.find('span', {'class':'price'}).string
 
-    bid = {'bidder':latest_bidder.string, 'price':price.string}
+    bid = {'bidder':latest_bidder, 'price':price}
 
     if bid not in bid_history:
         bid_history.append(bid)
+
+def main(driver):
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+
+    name = soup.find('h1', {'id':'product_title'}).string
 
 if __name__ == '__main__':
     url = raw_input('Url to scrape: ')
