@@ -39,6 +39,9 @@ class Item():
 
 
 def chck(driver, count, item):
+    # loops over the item page checking if new bids have been made
+    # adds them to the item's bid_history attribute
+
     while(True):
         html = driver.page_source
         retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
@@ -54,7 +57,7 @@ def chck(driver, count, item):
                     actual_price = float(soup.find('ul', {'class':'price-breakdown'}).find('span', {'class':'float-right'}).string.strip()[1:])
 
                     item.attributes['winner'] = winner
-                    item.attributes['final_price'] = final_price
+                    item.attributes['win_price'] = final_price
                     item.attributes['actual_price'] = actual_price
                     print 'auction over'
                     driver.quit()
