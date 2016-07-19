@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import re
+
 from selenium import webdriver
 from bs4 import BeautifulSoup
 
@@ -11,7 +13,7 @@ def chck(driver):
     soup = BeautifulSoup(html, 'html.parser')
 
     latest_bidder = soup.find('td', {'id':'bhu_1'}).string
-    price = soup.find('span', {'class':'price'}).string
+    price = float(soup.find('span', {'class':'price'}).string.strip()[1:])
 
     bid = {'bidder':latest_bidder, 'price':price}
 
@@ -30,15 +32,17 @@ def main(driver):
     count = 0
     for bid in bids[::-1]:
         elements = bid.find_all('td')
-        bid = {
-            'id':count,
-            'bidder':elements[0].string,
-            'price':elements[1].string,
-            'method':elements[2].string
-        }
 
-        bid_history.append(bid)
-        count+=1
+        if re.search(r'\d', elements[2].string):
+            bid = {
+                'id':count,
+                'bidder':elements[1].string,
+                'price':float(elements[2].string.strip()[1:]),
+                'method':elements[3].string
+                }
+
+                bid_history.append(bid)
+                count+=1
 
 
 
