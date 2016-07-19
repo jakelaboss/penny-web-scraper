@@ -1,6 +1,13 @@
-conn = psycopg2.connect(connection)
+import time
+import psycopg2
+import sys
+import multiprocessing as mp
+from bs4 import BeautifulSoup, SoupStrainer
+from selenium import webdriver
+
+conn = psycopg2.connect("dbname=items user=jakelaboss host='ec2-54-234-158-224.compute-1.amazonaws.com' password='~r@mnUHPWv)00Cbju:?e<WM5q~2EBaeP'")
 cursor = conn.cursor()
-items = item_scraper.load(open(item_scraper,"rb"))
+items = item_scraper.load(open(item_scraper.py,"rb"))
 
 for item in items:
     city = item[0]
