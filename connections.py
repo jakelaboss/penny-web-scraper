@@ -24,18 +24,3 @@ for item in items:
 
     conn.commit()
     conn.close();
-
-def store(data):
-	conn = psycopg2.connect()
-
-	for x in range(len(data)):
-		d = data.pop()
-		try:
-			cur = conn.cursor()
-			cur.execute('INSERT INTO items(auction_id, item_id, item_name, auction_price, value_price, win_time, url, winner, user_id) VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING', (d[0], d[2], d[3], d[4], d[5], d[6], d[1]))
-		except psycopg2.DatabaseError, e:
-			print 'Error %s' % e
-			sys.exit(1)
-
-	conn.commit()
-	conn.close()
