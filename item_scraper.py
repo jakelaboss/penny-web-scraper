@@ -24,11 +24,12 @@ def main(driver):
 
     name = soup.find('h1', {'id':'product_title'}).string
 
-    bids = soup.find('table', {'id':'bid_history'}).find_all('tr')
+    bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
+    print len(bids)
 
     count = 0
     for bid in bids[::-1]:
-        elements = soup.find_all('td')
+        elements = bid.find_all('td')
         bid = {
             'id':count,
             'bidder':elements[0].string,
@@ -39,8 +40,7 @@ def main(driver):
         bid_history.append(bid)
         count+=1
 
-    print bid_history
-    
+
 
 if __name__ == '__main__':
     url = raw_input('Url to scrape: ')
@@ -51,11 +51,9 @@ if __name__ == '__main__':
     driver.get(url)
     print 'url retrieved'
 
-    while 1:
-        try:
-            main(driver)
-        except KeyboardInterrupt:
-            print 'scraping ended'
-            break
+    try:
+        main(driver)
+    except KeyboardInterrupt:
+        print 'scraping ended'
 
     print(bid_history)

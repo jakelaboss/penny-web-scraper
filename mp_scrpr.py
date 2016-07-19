@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 ################################################################################
-#																	
-# Quibids Scraper v1.0.0													   
-#																			   
-#																			   
+#
+# Quibids Scraper v1.0.0
+#
+#
 ################################################################################
 
 import time
@@ -28,19 +28,19 @@ def ftch(link):
 	print driver.current_url
 	html = driver.page_source
 	soup = BeautifulSoup(html, 'html.parser')
-	
+
 	name = soup.find('h1', {'id':'product_title'}).string.strip()
 	winner = soup.find('span', {'class':'won_username'}).string.strip()
-	
+
 	try:
 		auction_price = float(soup.find('p', {'class':'won_price'}).string.strip()[1:])
 		value_price = float(soup.find('ul', {'class':'price-breakdown'}).find('span', {'class':'float-right'}).string.strip()[1:])
 	except:
 		auction_price = None
 		value_price = None
-	
+
 	win_time = soup.find('div', {'id':'end-time-disclaim'}).find_all('p', {'class':'light-grey'})[1].string.strip()
-	
+
 	bids = []
 	table = soup.find('table', {'id':'bid-history'}).find_all('td')
 
@@ -66,7 +66,7 @@ def ftch(link):
 
 
 def store(data):
-	conn = psycopg2.connect(host='localhost', dbname='postgres', user='postgres', password='test')
+	conn = psycopg2.connect()
 
 	for x in range(len(data)):
 		d = data.pop()
@@ -78,7 +78,7 @@ def store(data):
 			sys.exit(1)
 
 	conn.commit()
-	conn.close()	
+	conn.close()
 
 
 def main():
@@ -91,8 +91,8 @@ def main():
 
 	for item in soup:
 		link = item.find('a')
-		links.append(link['href'])	
-	
+		links.append(link['href'])
+
 	for i in range(20000):
 		link = links.pop(0)
 		if link not in used_links:
@@ -111,4 +111,3 @@ if __name__=='__main__':
 	finally:
 		if data:
 			store(data)
-
