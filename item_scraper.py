@@ -1,24 +1,34 @@
 #!/usr/bin/env python
 
 import re
+import sys
 
-from selenium import webdriver
 from bs4 import BeautifulSoup
+import psycopg2
+from selenium import webdriver
 
 bid_history = []
 
 def chck(driver):
-    html = driver.page_source
-    print len(html)
-    soup = BeautifulSoup(html, 'html.parser')
+    while(True):
+        html = driver.page_source
+        soup = BeautifulSoup(html, 'html.parser')
 
-    latest_bidder = soup.find('td', {'id':'bhu_1'}).string
-    price = float(soup.find('span', {'class':'price'}).string.strip()[1:])
+        latest_bidder = soup.find('td', {'id':'bhu_1'}).string
 
-    bid = {'bidder':latest_bidder, 'price':price}
+        try:
+            price = float(soup.find('span', {'class':'price'}).string.strip()[1:])
+        except AttributeError:
+            if soup.find('p', {'class':'won_price'}):
+                final_price = float(soup.find('p', {'class':'won_price'}).string.strip()[1:])
+                print 'auction over'
+                break
 
-    if bid not in bid_history:
-        bid_history.append(bid)
+        bid = {'bidder':latest_bidder, 'price':price}
+
+        if bid not in bid_history:
+            bid_history.append(bid)
+
 
 def main(driver):
     html = driver.page_source
@@ -27,7 +37,6 @@ def main(driver):
     name = soup.find('h1', {'id':'product_title'}).string
 
     bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
-    print len(bids)
 
     count = 0
     for bid in bids[::-1]:
@@ -41,19 +50,29 @@ def main(driver):
                 'method':elements[3].string
                 }
 
-                bid_history.append(bid)
-                count+=1
+            bid_history.append(bid)
+            count+=1
+
+    chck(driver)
 
 
 
 if __name__ == '__main__':
-    url = raw_input('Url to scrape: ')
-    print 'opening browser...'
-    driver = webdriver.PhantomJS()
-    print 'browser opened'
-    print 'retrieving url...'
-    driver.get(url)
-    print 'url retrieved'
+    if len(sys.argv) < 1:
+        print 'python item_scaper.py <link>'
+        sys.exit()
+    else:
+        url = sys.argv[0]
+
+    try:
+        print 'opening browser...'
+        driver = webdriver.PhantomJS()
+        print 'browser opened'
+        print 'retrieving url...'
+        driver.get(url)
+        print 'url retrieved'
+    except Exception, e:
+        print 'Error opening site: ', e
 
     try:
         main(driver)
