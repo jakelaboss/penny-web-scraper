@@ -16,29 +16,35 @@ def chck(driver, count):
         retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
         soup = BeautifulSoup(html, 'html.parser')
 
-        latest_bidder = soup.find('td', {'id':'bhu_1'}).string
-        method = soup.find('td', {'id':'bht_1'}).string
-
         try:
-            price = float(soup.find('span', {'class':'price'}).string.strip()[1:])
-        except AttributeError:
             if soup.find('p', {'class':'won_price'}):
-                final_price = float(soup.find('p', {'class':'won_price'}).string.strip()[1:])
-                print 'auction over'
-                break
+                final_price = soup.find('p', {'class':'won_price'}).string
+                if re.search(r'\d', final_price):
+                    final_price = float(final_price.strip()[1:])
+                    print 'auction over'
+                    print final_price
+                    break
+            else:
+                latest_bidder = soup.find('td', {'id':'bhu_1'}).string
+                method = soup.find('td', {'id':'bht_1'}).string
+                price = soup.find('td', {'id':'bhp_1'}).string
+                auction_time = soup.find('p', {'class':'large-timer2'}).string
 
-        bid = {
-            'id':count,
-            'bidder':latest_bidder,
-            'price':price,
-            'method':method,
-            'retrieval_time':retrieval_time
-        }
+                if re.search(r'\d', price) and float(price.strip()[1:]) != 0.0:
+                    bid = {
+                        'id':count,
+                        'bidder':latest_bidder,
+                        'price':float(price.strip()[1:]),
+                        'method':method,
+                        'auction_time':auction_time,
+                        'retrieval_time':retrieval_time
+                        }
 
-        if bid not in bid_history:
-            bid_history.append(bid)
-
-        count+=1
+                    if not any(b['price'] == bid['price'] for b in bid_history):
+                        bid_history.append(bid)
+                        count+=1
+        except AttributeError:
+            pass
 
 
 def main(driver):
@@ -59,6 +65,7 @@ def main(driver):
                 'bidder':elements[1].string,
                 'price':float(elements[2].string.strip()[1:]),
                 'method':elements[3].string,
+                'auction_time':'historic',
                 'retrieval_time':'historic'
                 }
 
@@ -66,7 +73,6 @@ def main(driver):
             count+=1
 
     chck(driver, count)
-
 
 
 if __name__ == '__main__':
@@ -90,5 +96,6 @@ if __name__ == '__main__':
         main(driver)
     except KeyboardInterrupt:
         print 'scraping ended'
+        driver.quit()
 
     print(bid_history)
