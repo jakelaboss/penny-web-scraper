@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
-import re
-import sys
-import time
+import re, sys, time
 
 from bs4 import BeautifulSoup
+import psycopg2
 from selenium import webdriver
 
 bid_history = []
@@ -13,9 +12,11 @@ class Item():
     # contains all information about an item
     # name, id, link, winner, win price, actual price, bid history
 
-    def __init__(self, name, link):
-        self.name = name
+    def __init__(self, link):
         self.link = link
+        self.driver = webdriver.PhantomJS()
+        self.bid_count = 0
+        self.name = None
         self.attributes = {
             'winner':None,
             'win_price':None,
@@ -38,102 +39,100 @@ class Item():
             print 'Auction Time: ' + bid['auction_time']
 
 
-def chck(driver, count, item):
-    # loops over the item page checking if new bids have been made
-    # adds them to the item's bid_history attribute
+    def watch(self):
+        # loops over the item page checking if new bids have been made
+        # adds them to the item's bid_history attribute
 
-    while(True):
-        html = driver.page_source
-        retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
-        soup = BeautifulSoup(html, 'html.parser')
+        while(True):
+            html = self.driver.page_source
+            retrieval_time = time.strftime("%d-%b-%Y %H:%M:%S", time.localtime())
+            soup = BeautifulSoup(html, 'html.parser')
+
+            try:
+                if soup.find('p', {'class':'won_price'}):
+                    winner = soup.find('span', {'class':'won_username'}).string
+                    final_price = soup.find('p', {'class':'won_price'}).string
+
+                    if bool(re.search(r'\d', final_price)):
+                        final_price = float(final_price.strip()[1:])
+                        actual_price = float(soup.find('ul', {'class':'price-breakdown'}).find('span', {'class':'float-right'}).string.strip()[1:])
+
+                        self.attributes['winner'] = winner
+                        self.attributes['win_price'] = final_price
+                        self.attributes['actual_price'] = actual_price
+                        print 'auction over'
+                        self.driver.quit()
+                        break
+                else:
+                    latest_bidder = soup.find('td', {'id':'bhu_1'}).string
+                    method = soup.find('td', {'id':'bht_1'}).string
+                    price = soup.find('td', {'id':'bhp_1'}).string
+                    auction_time = soup.find('p', {'class':'large-timer2'}).string
+
+                    if re.search(r'\d', price) and float(price.strip()[1:]) != 0.0:
+                        bid = {
+                            'id':self.bid_count,
+                            'bidder':latest_bidder,
+                            'price':float(price.strip()[1:]),
+                            'method':method,
+                            'auction_time':auction_time,
+                            'retrieval_time':retrieval_time
+                            }
+
+                        if not any(b['price'] == bid['price'] for b in self.attributes['bid_history']):
+                            self.attributes['bid_history'].append(bid)
+                            self.bid_count+=1
+            except AttributeError:
+                pass
+
+
+    def store(self):
+        # stores all information including all past bids
 
         try:
-            if soup.find('p', {'class':'won_price'}):
-                winner = soup.find('span', {'class':'won_username'}).string
-                final_price = soup.find('p', {'class':'won_price'}).string
+            conn = psycopg2.connect("dbname=items user=jakelaboss host='ec2-54-234-158-224.compute-1.amazonaws.com' password='~r@mnUHPWv)00Cbju:?e<WM5q~2EBaeP'")
+            cur = conn.cursor()
+            sql = 'INSERT INTO bids (order, bidder, price, method, auction_time, retrieval_time) ON CONFLICT NOTHING;'
+            bids = self.attributes['bid_history']
 
-                if bool(re.search(r'\d', final_price)):
-                    final_price = float(final_price.strip()[1:])
-                    actual_price = float(soup.find('ul', {'class':'price-breakdown'}).find('span', {'class':'float-right'}).string.strip()[1:])
+            for bid in bids:
+                data = (bid['id'], bid['bidder'], bid['price'], bid['method'], bid['auction_time'], bid['retrieval_time'])
+                cur.execute(sql, data)
 
-                    item.attributes['winner'] = winner
-                    item.attributes['win_price'] = final_price
-                    item.attributes['actual_price'] = actual_price
-                    print 'auction over'
-                    driver.quit()
-                    break
-            else:
-                latest_bidder = soup.find('td', {'id':'bhu_1'}).string
-                method = soup.find('td', {'id':'bht_1'}).string
-                price = soup.find('td', {'id':'bhp_1'}).string
-                auction_time = soup.find('p', {'class':'large-timer2'}).string
+        except psycopg2.DatabaseError, e:
+            print 'Error %s' % e
+            sys.exit(1)
+        finally:
+            conn.commit()
+            conn.close()
 
-                if re.search(r'\d', price) and float(price.strip()[1:]) != 0.0:
-                    bid = {
-                        'id':count,
-                        'bidder':latest_bidder,
-                        'price':float(price.strip()[1:]),
-                        'method':method,
-                        'auction_time':auction_time,
-                        'retrieval_time':retrieval_time
-                        }
+    def start(self):
+        # starts inspection of item by collecting on information on the page
+        # usually before the majority of bids have been placed
 
-                    if not any(b['price'] == bid['price'] for b in bid_history):
-                        item.attributes['bid_history'].append(bid)
-                        count+=1
-        except AttributeError:
-            pass
+        try:
+            self.driver.get(self.link)
+        except Exception, e:
+            print 'Error opening site: ', e
 
-    return item
+        html = self.driver.page_source
+        soup = BeautifulSoup(html, 'html.parser')
+        self.name = soup.find('h1', {'id':'product_title'}).string
 
-def main(url):
-    try:
-        print 'opening browser...'
-        driver = webdriver.PhantomJS()
-        print 'browser opened'
-        print 'retrieving url...'
-        driver.get(url)
-        print 'url retrieved'
-    except Exception, e:
-        print 'Error opening site: ', e
+        bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
 
-    html = driver.page_source
-    soup = BeautifulSoup(html, 'html.parser')
-    name = soup.find('h1', {'id':'product_title'}).string
+        for bid in bids[::-1]:
+            elements = bid.find_all('td')
 
-    item = Item(name, url)
+            if re.search(r'\d', elements[2].string):
+                bid = {
+                    'id':self.bid_count,
+                    'bidder':elements[1].string,
+                    'price':float(elements[2].string.strip()[1:]),
+                    'method':elements[3].string,
+                    'auction_time':'historic',
+                    'retrieval_time':'historic'
+                    }
 
-    bids = soup.find('table', {'id':'bid-history'}).find_all('tr')
-    count = 0
-
-    for bid in bids[::-1]:
-        elements = bid.find_all('td')
-
-        if re.search(r'\d', elements[2].string):
-            bid = {
-                'id':count,
-                'bidder':elements[1].string,
-                'price':float(elements[2].string.strip()[1:]),
-                'method':elements[3].string,
-                'auction_time':'historic',
-                'retrieval_time':'historic'
-                }
-
-            item.attributes['bid_history'].append(bid)
-            count+=1
-
-    return chck(driver, count, item)
-
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print 'python item_scaper.py <link>'
-        sys.exit()
-    else:
-        url = sys.argv[1]
-
-    try:
-        item = main(url)
-    except KeyboardInterrupt:
-        print 'scraping ended'
-
-    item.pretty_print()
+                self.attributes['bid_history'].append(bid)
+                self.bid_count+=1
