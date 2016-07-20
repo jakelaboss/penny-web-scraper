@@ -37,6 +37,7 @@ class Item():
             print 'Price: ' + str(bid['price'])
             print 'Method: ' + bid['method']
             print 'Auction Time: ' + bid['auction_time']
+            print 'Retrieval Time: ' + bid['retrieval_time']
 
 
     def watch(self):
@@ -64,24 +65,25 @@ class Item():
                         self.driver.quit()
                         break
                 else:
-                    latest_bidder = soup.find('td', {'id':'bhu_1'}).string
-                    method = soup.find('td', {'id':'bht_1'}).string
-                    price = soup.find('td', {'id':'bhp_1'}).string
-                    auction_time = soup.find('p', {'class':'large-timer2'}).string
+                    bids = soup.find('table', {'id':'bid-history'}).find_all('tr')[:2]
 
-                    if re.search(r'\d', price) and float(price.strip()[1:]) != 0.0:
-                        bid = {
+                    for x in bids[::-1]:
+                        elements = x.find_all('td')
+
+                        if re.search(r'\d', elements[2].string):
+                            bid = {
                             'id':self.bid_count,
-                            'bidder':latest_bidder,
-                            'price':float(price.strip()[1:]),
-                            'method':method,
-                            'auction_time':auction_time,
-                            'retrieval_time':retrieval_time
+                            'bidder':elements[1].string,
+                            'price':float(elements[2].string.strip()[1:]),
+                            'method':elements[3].string,
+                            'auction_time':'historic',
+                            'retrieval_time':'historic'
                             }
 
                         if not any(b['price'] == bid['price'] for b in self.attributes['bid_history']):
                             self.attributes['bid_history'].append(bid)
                             self.bid_count+=1
+                time.wait(2)
             except AttributeError:
                 pass
 
